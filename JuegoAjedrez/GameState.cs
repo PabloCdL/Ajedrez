@@ -3,28 +3,30 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace JuegoAjedrez
+namespace JuegoAjedrez.AjedrezConsola
 {
     public class GameState
     {
-        // Matriz bidimensional de 8x8 que hereda la lógica del tablero del video
+         
         public string[,] Tablero { get; private set; } = new string[8, 8];
         public Player CurrentPlayer { get; private set; }
+        public int PuntajePartida { get; private set; } = 0;   
 
+         
         public GameState()
         {
-            CurrentPlayer = Player.Blanco; // Inician las blancas
+            CurrentPlayer = Player.Blanco;   
             InicializarTablero();
         }
 
+         
         private void InicializarTablero()
         {
-             
             for (int i = 0; i < 8; i++)
                 for (int j = 0; j < 8; j++)
                     Tablero[i, j] = "  ";
 
-            
+             
             Tablero[0, 0] = "tn"; Tablero[0, 1] = "cn"; Tablero[0, 2] = "an"; Tablero[0, 3] = "dn";
             Tablero[0, 4] = "rn"; Tablero[0, 5] = "an"; Tablero[0, 6] = "cn"; Tablero[0, 7] = "tn";
             for (int j = 0; j < 8; j++) Tablero[1, j] = "pn";
@@ -35,87 +37,198 @@ namespace JuegoAjedrez
             Tablero[7, 4] = "RB"; Tablero[7, 5] = "AB"; Tablero[7, 6] = "CB"; Tablero[7, 7] = "TB";
         }
 
+        
         public bool RealizarMovimiento(Position desde, Position hasta)
         {
+             
+            if (desde.Fila < 0 || desde.Fila > 7 || desde.Columna < 0 || desde.Columna > 7 ||
+                hasta.Fila < 0 || hasta.Fila > 7 || hasta.Columna < 0 || hasta.Columna > 7) return false;
+
             string pieza = Tablero[desde.Fila, desde.Columna];
             string piezaDestino = Tablero[hasta.Fila, hasta.Columna];
 
-          
-            if (pieza == "  ") return false; 
-            if (desde.Fila == hasta.Fila && desde.Columna == hasta.Columna) return false; // No se movió
+             
+            if (pieza == "  ") return false;
+            if (desde.Fila == hasta.Fila && desde.Columna == hasta.Columna) return false;
 
-            // Validar turnos
+             
             if (CurrentPlayer == Player.Blanco && pieza.EndsWith("n")) return false;
             if (CurrentPlayer == Player.Negro && pieza.EndsWith("B")) return false;
 
-            // 2. REGLA DE CAPTURA (¿Se pueden comer?)
+             
             if (piezaDestino != "  ")
             {
-                // Si la pieza del destino es del mismo equipo (mismo sufijo 'B' o 'n'), es inválido
                 if ((pieza.EndsWith("B") && piezaDestino.EndsWith("B")) ||
-                    (pieza.EndsWith("n") && piezaDestino.EndsWith("n")))
-                {
-                    return false; // No puedes comer de tu propio equipo
-                }
+                    (pieza.EndsWith("n") && piezaDestino.EndsWith("n"))) return false;
             }
 
-            // 3. REGLAS DE MOVIMIENTO REALES POR PIEZA
+             
+            string tipoPieza = pieza.ToLower();
+            bool movimientoValido = false;
 
-            // --- LÓGICA DEL PEÓN BLANCO ---
-            if (pieza == "PB")
+            int difFila = hasta.Fila - desde.Fila;
+            int difCol = hasta.Columna - desde.Columna;
+            int absDifFila = Math.Abs(difFila);
+            int absDifCol = Math.Abs(difCol);
+
+            switch (tipoPieza[0])
             {
-                int avanceFila = desde.Fila - hasta.Fila;
-                int avanceCol = hasta.Columna - desde.Columna;
+                case 'p':  
+                    if (pieza == "PB")  
+                    {
+                        if (difCol == 0 && piezaDestino == "  ")
+                        {
+                            if (desde.Fila == 6 && (difFila == -1 || difFila == -2))
+                            {
+                                if (difFila == -2 && Tablero[5, desde.Columna] != "  ") movimientoValido = false;
+                                else movimientoValido = true;
+                            }
+                            else if (difFila == -1) movimientoValido = true;
+                        }
+                        else if (absDifCol == 1 && difFila == -1 && piezaDestino != "  ") movimientoValido = true;
+                    }
+                    else  
+                    {
+                        if (difCol == 0 && piezaDestino == "  ")
+                        {
+                            if (desde.Fila == 1 && (difFila == 1 || difFila == 2))
+                            {
+                                if (difFila == 2 && Tablero[2, desde.Columna] != "  ") movimientoValido = false;
+                                else movimientoValido = true;
+                            }
+                            else if (difFila == 1) movimientoValido = true;
+                        }
+                        else if (absDifCol == 1 && difFila == 1 && piezaDestino != "  ") movimientoValido = true;
+                    }
+                    break;
 
-                // Caso A: Movimiento recto hacia adelante (Solo si la casilla destino está VACÍA)
-                if (avanceCol == 0 && piezaDestino == "  ")
-                {
-                    if (desde.Fila == 6 && (avanceFila == 1 || avanceFila == 2)) { /* Válido */ }
-                    else if (desde.Fila != 6 && avanceFila == 1) { /* Válido */ }
-                    else return false;
-                }
-                // Caso B: Movimiento diagonal para COMER (Solo si hay una pieza enemiga)
-                else if (Math.Abs(avanceCol) == 1 && avanceFila == 1 && piezaDestino != "  ")
-                {
-                    // Es válido porque ya validamos arriba que el destino es enemigo
-                }
-                else
-                {
-                    return false; // Cualquier otro movimiento de peón es ilegal
-                }
+                case 't':  
+                    if (desde.Fila == hasta.Fila || desde.Columna == hasta.Columna)
+                        movimientoValido = ValidarCaminoLibreRecto(desde, hasta);
+                    break;
+
+                case 'a':  
+                    if (absDifFila == absDifCol)
+                        movimientoValido = ValidarCaminoLibreDiagonal(desde, hasta);
+                    break;
+
+                case 'd':  
+                    if (desde.Fila == hasta.Fila || desde.Columna == hasta.Columna)
+                        movimientoValido = ValidarCaminoLibreRecto(desde, hasta);
+                    else if (absDifFila == absDifCol)
+                        movimientoValido = ValidarCaminoLibreDiagonal(desde, hasta);
+                    break;
+
+                case 'r':  
+                    if (absDifFila <= 1 && absDifCol <= 1) movimientoValido = true;
+                    break;
+
+                case 'c':  
+                    if ((absDifFila == 2 && absDifCol == 1) || (absDifFila == 1 && absDifCol == 2))
+                        movimientoValido = true;  
+                    break;
             }
+             
+            if (!movimientoValido) return false;
 
-            // --- LÓGICA DE LA TORRE (Blanca o Negra) ---
-            if (pieza == "TB" || pieza == "tn")
+             
+            if (piezaDestino != "  ")
             {
-                // La torre solo se mueve si la fila se mantiene igual O la columna se mantiene igual
-                if (desde.Fila != hasta.Fila && desde.Columna != hasta.Columna)
-                    return false;
+                PuntajePartida += 10;  
 
-                // Validar que no haya piezas estorbando en el camino (Fila)
-                if (desde.Fila == hasta.Fila)
+                if (piezaDestino.ToLower().StartsWith("r"))
                 {
-                    int paso = desde.Columna < hasta.Columna ? 1 : -1;
-                    for (int c = desde.Columna + paso; c != hasta.Columna; c += paso)
-                        if (Tablero[desde.Fila, c] != "  ") return false; // Camino bloqueado
-                }
-                // Validar que no haya piezas estorbando en el camino (Columna)
-                else if (desde.Columna == hasta.Columna)
-                {
-                    int paso = desde.Fila < hasta.Fila ? 1 : -1;
-                    for (int f = desde.Fila + paso; f != hasta.Fila; f += paso)
-                        if (Tablero[f, desde.Columna] != "  ") return false; // Camino bloqueado
+                    PuntajePartida += 50;
                 }
             }
 
-            // 4. EJECUCIÓN DEL MOVIMIENTO EN LA MATRIZ
-            // Al sobreescribir 'pieza' sobre 'piezaDestino', la pieza enemiga "muere" automáticamente de la memoria
+             
             Tablero[hasta.Fila, hasta.Columna] = pieza;
             Tablero[desde.Fila, desde.Columna] = "  ";
 
-            // Cambiar de turno
-            CurrentPlayer = CurrentPlayer == Player.Blanco ? Player.Negro : Player.Blanco;
+
+            if (CurrentPlayer == Player.Blanco)
+                CurrentPlayer = Player.Negro;
+            else
+                CurrentPlayer = Player.Blanco;
+
             return true;
         }
-    }
+
+         
+        private bool ValidarCaminoLibreRecto(Position desde, Position hasta)
+        {
+            if (desde.Fila == hasta.Fila)
+            {
+                int paso;
+                if (desde.Columna < hasta.Columna)
+                {
+                    paso = 1;
+                }
+                else
+                {
+                    paso = -1;
+                }
+
+                for (int c = desde.Columna + paso; c != hasta.Columna; c += paso)
+                {
+                    if (Tablero[desde.Fila, c].Trim() != "") return false;
+                }
+            }
+            else  
+            {
+                int paso;   
+                if(desde.Fila < hasta.Fila )
+                {
+                    paso = 1;
+                }
+                else
+                {
+                    paso = -1;
+                }
+                 
+                for (int f = desde.Fila + paso; f != hasta.Fila; f += paso)
+                {
+                    if (Tablero[f, desde.Columna].Trim() != "") return false;
+                }
+            }
+            return true;
+        }
+
+        private bool ValidarCaminoLibreDiagonal(Position desde, Position hasta)
+        {
+            int pasoFila;
+            if(desde.Fila < hasta.Fila)
+            {
+                pasoFila = 1;
+            }else
+            {
+                pasoFila= -1;
+            }
+
+            int pasoCol;   
+            if( desde.Columna < hasta.Columna)
+            {
+                pasoCol = 1;
+            }
+            else
+            {
+                pasoCol = -1;
+            } 
+            
+            int f = desde.Fila + pasoFila;
+            int c = desde.Columna + pasoCol;
+              
+            while (f != hasta.Fila && c != hasta.Columna)
+            {
+                if (Tablero[f, c].Trim() != "")
+                {
+                    return false;  
+                }
+                f += pasoFila;
+                c += pasoCol;
+            }
+            return true;  
+        }
+    }  
 }
